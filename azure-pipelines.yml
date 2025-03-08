@@ -1,0 +1,79 @@
+trigger:
+  branches:
+    include:
+      - main  # Corrección del trigger para ejecutarse en la rama main
+
+pool:
+  name: Default  # O el nombre del pool donde registraste el agente
+  demands:
+    - Agent.OS -equals Windows  # Asegura que el agente sea Windows
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '20.x'
+    displayName: 'Instalar Node.js'
+
+  - script: |
+      npm cache clean --force
+      npm install --legacy-peer-deps
+    displayName: 'Instalar dependencias'
+
+  - script: |
+      ng version
+      ng build --configuration=production
+      ng run reaction-sport:server:production
+    displayName: 'Construir aplicación Angular Universal'
+
+  - task: CopyFiles@2
+    inputs:
+      SourceFolder: '$(Build.SourcesDirectory)'
+      Contents: |
+        package.json
+        package-lock.json
+      TargetFolder: '$(Build.ArtifactStagingDirectory)/dist/reaction-sport'
+    displayName: 'Copiar package.json a dist/'
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/dist/reaction-sport'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+      replaceExistingArchive: true
+    displayName: 'Comprimir archivos para despliegue'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)/app.zip'
+      artifactName: 'drop'
+    displayName: 'Publicar artefactos'
+
+  - task: AzureWebApp@1
+    inputs:
+      azureSubscription: 'AzureConnection-ReactionSport'
+      appName: 'reactions'
+      package: '$(Build.ArtifactStagingDirectory)/app.zip'
+      deploymentMethod: 'zipDeploy'
+    displayName: 'Desplegar aplicación en Azure Web Apps'
+    
+  - task: AzureAppServiceSettings@1
+    inputs:
+      azureSubscription: 'AzureConnection-ReactionSport'
+      appName: 'reactions'
+      appSettings: |
+        [
+          { "name": "WEBSITES_PORT", "value": "3000" },
+          { "name": "NODE_ENV", "value": "production" },
+          { "name": "STARTUP_COMMAND", "value": "node dist/reaction-sport/server/main.js" }
+        ]
+    displayName: 'Configurar entorno de ejecución en Azure' 
+
+  #- task: AzureCLI@2
+   ## inputs:
+     ## azureSubscription: 'AzureConnection-ReactionSport'
+      ##scriptType: 'pscore'  # Usa PowerShell Core en Windows
+      #scriptLocation: 'inlineScript'
+      #inlineScript: |
+      #  az webapp restart --name reactions --resource-group TuResourceGroup
+    #displayName: 'Reiniciar aplicación con Azure CLI'

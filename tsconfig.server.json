@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+   "outDir": "dist/reaction-sport/server",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "types": ["node"],
+    "allowJs": true
+  },
+  "files": ["server.ts"],
+  "angularCompilerOptions": {
+    "enableIvy": false
+  }
+}
